@@ -210,7 +210,7 @@ impl Crypto {
         URL_SAFE
             .decode(data)
             .map(|v| v.to_vec())
-            .or_else(|e| Err(e.into()))
+            .map_err(|e| e.into())
     }
 
     /// Encodes data as a URL-safe Base64 string.
@@ -360,7 +360,7 @@ impl Crypto {
     /// # }
     /// ```
     #[inline]
-    pub fn timestamp<'a>(&self, data: &'a [u8]) -> Option<OffsetDateTime> {
+    pub fn timestamp(&self, data: &[u8]) -> Option<OffsetDateTime> {
         if data.len() < Self::IV_SIZE {
             return None;
         }
@@ -391,7 +391,7 @@ impl Crypto {
     /// # }
     /// ```
     #[inline]
-    pub fn server_id<'a>(&self, data: &'a [u8]) -> Option<i64> {
+    pub fn server_id(&self, data: &[u8]) -> Option<i64> {
         if data.len() < Self::IV_SIZE {
             return None;
         }
@@ -452,7 +452,7 @@ impl Crypto {
     ) -> Result<Vec<u8>, CryptoError> {
         let mut plain_data = vec![0; Self::OVERHEAD_SIZE + payload_size];
         if let Some(iv) = iv {
-            plain_data[Self::IV_BASE..Self::IV_BASE + Self::IV_SIZE].copy_from_slice(&iv);
+            plain_data[Self::IV_BASE..Self::IV_BASE + Self::IV_SIZE].copy_from_slice(iv);
         } else {
             let now = (OffsetDateTime::now_utc().unix_timestamp_nanos() / 1_000) as i64;
             self.write_i64(&mut plain_data, Self::IV_TIME_OFFSET, now);

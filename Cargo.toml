@@ -1,7 +1,10 @@
 [package]
 name = "signed-crypto"
 version = "0.1.0"
+authors = ["Kehan Pan <prestorpan@gmail.com>"]
 edition = "2021"
+license = "MIT"
+repository = "https://github.com/aptxx/signed-crypto"
 
 [dependencies]
 aes = "0.8.4"
