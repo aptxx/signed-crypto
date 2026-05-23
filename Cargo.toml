@@ -1,10 +1,13 @@
 [package]
 name = "signed-crypto"
 version = "0.1.0"
+description = "A Rust library for encrypted payloads with built-in integrity verification"
 authors = ["Kehan Pan <prestorpan@gmail.com>"]
 edition = "2021"
 license = "MIT"
 repository = "https://github.com/aptxx/signed-crypto"
+keywords = ["encryption", "crypto", "aes", "hmac", "security"]
+categories = ["cryptography"]
 
 [dependencies]
 aes = "0.8.4"
