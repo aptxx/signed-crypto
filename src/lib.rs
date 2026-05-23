@@ -26,6 +26,8 @@
 //! use signed_crypto::{Crypto, Keys};
 //!
 //! # fn main() -> Result<(), Box<dyn std::error::Error>> {
+//! // WARNING: Never use all-zero keys in production!
+//! // Generate secure random keys using a cryptographic RNG.
 //! let keys = Keys::new(&[0u8; 32], &[0u8; 32])?;
 //! let crypto = Crypto::new(keys);
 //!
@@ -86,6 +88,8 @@ impl Keys {
     /// use signed_crypto::Keys;
     ///
     /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// // WARNING: Never use all-zero keys in production!
+    /// // Generate secure random keys using a cryptographic RNG.
     /// let enc_key = [0u8; 32];
     /// let int_key = [0u8; 32];
     /// let keys = Keys::new(&enc_key, &int_key)?;
@@ -141,6 +145,7 @@ pub enum CryptoError {
 /// use signed_crypto::{Crypto, Keys};
 ///
 /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+/// // WARNING: Never use all-zero keys in production!
 /// let keys = Keys::new(&[0u8; 32], &[0u8; 32])?;
 /// let crypto = Crypto::new(keys);
 /// # Ok(())
@@ -160,6 +165,7 @@ impl Crypto {
     /// use signed_crypto::{Crypto, Keys};
     ///
     /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// // WARNING: Never use all-zero keys in production!
     /// let keys = Keys::new(&[0u8; 32], &[0u8; 32])?;
     /// let crypto = Crypto::new(keys);
     /// # Ok(())
@@ -196,6 +202,7 @@ impl Crypto {
     /// use signed_crypto::{Crypto, Keys};
     ///
     /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// // WARNING: Never use all-zero keys in production!
     /// let crypto = Crypto::new(Keys::new(&[0u8; 32], &[0u8; 32])?);
     /// let encoded = "SGVsbG8=";
     /// let decoded = crypto.decode(encoded)?;
@@ -221,6 +228,7 @@ impl Crypto {
     /// use signed_crypto::{Crypto, Keys};
     ///
     /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// // WARNING: Never use all-zero keys in production!
     /// let crypto = Crypto::new(Keys::new(&[0u8; 32], &[0u8; 32])?);
     /// let data = b"Hello";
     /// let encoded = crypto.encode(data);
@@ -247,6 +255,7 @@ impl Crypto {
     /// use signed_crypto::{Crypto, Keys};
     ///
     /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// // WARNING: Never use all-zero keys in production!
     /// let crypto = Crypto::new(Keys::new(&[0u8; 32], &[0u8; 32])?);
     /// let mut pkg = crypto.init_plain_data(5, None)?;
     /// crypto.set_payload(&mut pkg, b"Hello")?;
@@ -289,6 +298,7 @@ impl Crypto {
     /// use signed_crypto::{Crypto, Keys};
     ///
     /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// // WARNING: Never use all-zero keys in production!
     /// let crypto = Crypto::new(Keys::new(&[0u8; 32], &[0u8; 32])?);
     /// let mut pkg = crypto.init_plain_data(5, None)?;
     /// crypto.set_payload(&mut pkg, b"Hello")?;
@@ -382,6 +392,7 @@ impl Crypto {
     /// use signed_crypto::{Crypto, Keys};
     ///
     /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// // WARNING: Never use all-zero keys in production!
     /// let crypto = Crypto::new(Keys::new(&[0u8; 32], &[0u8; 32])?);
     /// let mut pkg = crypto.init_plain_data(5, None)?;
     /// crypto.set_payload(&mut pkg, b"Hello")?;
@@ -408,6 +419,7 @@ impl Crypto {
     /// use signed_crypto::{Crypto, Keys};
     ///
     /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// // WARNING: Never use all-zero keys in production!
     /// let crypto = Crypto::new(Keys::new(&[0u8; 32], &[0u8; 32])?);
     /// let mut pkg = crypto.init_plain_data(5, None)?;
     /// crypto.set_payload(&mut pkg, b"Hello")?;
@@ -439,6 +451,7 @@ impl Crypto {
     /// use signed_crypto::{Crypto, Keys};
     ///
     /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// // WARNING: Never use all-zero keys in production!
     /// let crypto = Crypto::new(Keys::new(&[0u8; 32], &[0u8; 32])?);
     /// let pkg = crypto.init_plain_data(10, None)?;
     /// # Ok(())
@@ -479,6 +492,7 @@ impl Crypto {
     /// use signed_crypto::{Crypto, Keys};
     ///
     /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// // WARNING: Never use all-zero keys in production!
     /// let crypto = Crypto::new(Keys::new(&[0u8; 32], &[0u8; 32])?);
     /// let mut pkg = crypto.init_plain_data(5, None)?;
     /// crypto.set_payload(&mut pkg, b"Hello")?;

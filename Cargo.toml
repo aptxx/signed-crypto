@@ -1,6 +1,6 @@
 [package]
 name = "signed-crypto"
-version = "0.1.0"
+version = "0.1.2"
 description = "A Rust library for encrypted payloads with built-in integrity verification"
 authors = ["Kehan Pan <prestorpan@gmail.com>"]
 edition = "2021"

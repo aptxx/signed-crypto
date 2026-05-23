@@ -57,9 +57,16 @@ Overhead: 20 bytes per package.
 
 ## Security Notes
 
+**IMPORTANT: This library is designed for encrypting non-sensitive data only.**
+
+- **Never use weak or predictable keys** (like `[0u8; 32]`) in production
+- Always generate cryptographic keys using a secure random number generator
 - Use unique IVs for each encryption (automatic with `init_plain_data`)
 - Rotate keys periodically
-- 4-byte HMAC is suitable for integrity, not adversarial environments
+- The 4-byte HMAC signature provides basic integrity protection but is **not** resistant to targeted attacks
+- This library is **NOT suitable** for:
+  - Highly sensitive data (passwords, financial information, personal data)
+  - Adversarial environments where attackers actively forge signatures
 
 ## Acknowledgments
 
