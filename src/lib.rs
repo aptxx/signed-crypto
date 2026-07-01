@@ -40,10 +40,10 @@
 
 use aes::cipher::{KeyIvInit, StreamCipher};
 use base64::{engine::general_purpose::URL_SAFE, Engine as _};
-use std::io::Write;
 use byteorder::{BigEndian, ByteOrder};
 use hmac::{Hmac, Mac};
 use sha2::Sha256;
+use std::io::Write;
 use thiserror::Error;
 use time::{Duration, OffsetDateTime};
 
@@ -308,11 +308,7 @@ impl Crypto {
     /// let encoded = crypto.package(b"Hello, world!", None).unwrap();
     /// ```
     #[inline]
-    pub fn package<T>(
-        &self,
-        payload: T,
-        iv: Option<&[u8]>,
-    ) -> Result<String, CryptoError>
+    pub fn package<T>(&self, payload: T, iv: Option<&[u8]>) -> Result<String, CryptoError>
     where
         T: AsRef<[u8]>,
     {
@@ -405,11 +401,7 @@ impl Crypto {
     /// assert_eq!(buf, b"Hello, world!");
     /// ```
     #[inline]
-    pub fn unpackage_to<T, W>(
-        &self,
-        data: T,
-        out: &mut W,
-    ) -> Result<(), CryptoError>
+    pub fn unpackage_to<T, W>(&self, data: T, out: &mut W) -> Result<(), CryptoError>
     where
         T: AsRef<[u8]>,
         W: Write,
@@ -833,7 +825,9 @@ mod tests {
         assert!(buf.len() > prefix_len);
 
         let mut dec_buf = Vec::new();
-        crypto.unpackage_to(&buf[prefix_len..], &mut dec_buf).unwrap();
+        crypto
+            .unpackage_to(&buf[prefix_len..], &mut dec_buf)
+            .unwrap();
         assert_eq!(dec_buf, payload);
     }
 
