@@ -26,6 +26,16 @@ use signed_crypto::{Crypto, Keys};
 let keys = Keys::new(&enc_key, &integrity_key)?;
 let crypto = Crypto::new(keys);
 
+// Encrypt → URL-safe Base64 string
+let encoded = crypto.package(b"my payload", None)?;
+
+// Decrypt → original payload
+let payload = crypto.unpackage(&encoded)?;
+```
+
+For finer control, the lower-level building blocks are still available:
+
+```rust
 // Encrypt
 let mut pkg = crypto.init_plain_data(payload.len(), None)?;
 crypto.set_payload(&mut pkg, payload)?;

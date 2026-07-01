@@ -25,27 +25,22 @@
 //! ```rust
 //! use signed_crypto::{Crypto, Keys};
 //!
-//! # fn main() -> Result<(), Box<dyn std::error::Error>> {
 //! // WARNING: Never use all-zero keys in production!
 //! // Generate secure random keys using a cryptographic RNG.
-//! let keys = Keys::new(&[0u8; 32], &[0u8; 32])?;
+//! let keys = Keys::new(&[0u8; 32], &[0u8; 32]).unwrap();
 //! let crypto = Crypto::new(keys);
 //!
-//! // Encrypt
-//! let payload = b"Hello, world!";
-//! let mut pkg = crypto.init_plain_data(payload.len(), None)?;
-//! crypto.set_payload(&mut pkg, payload)?;
-//! let encrypted = crypto.encrypt(&pkg)?;
+//! // Encrypt → URL-safe Base64 string
+//! let encoded = crypto.package(b"Hello, world!", None).unwrap();
 //!
-//! // Decrypt
-//! let decrypted = crypto.decrypt(&encrypted)?;
-//! assert_eq!(crypto.payload(&decrypted), Some(payload.as_slice()));
-//! # Ok(())
-//! # }
+//! // Decrypt → original payload
+//! let payload = crypto.unpackage(&encoded).unwrap();
+//! assert_eq!(payload, b"Hello, world!");
 //! ```
 
 use aes::cipher::{KeyIvInit, StreamCipher};
 use base64::{engine::general_purpose::URL_SAFE, Engine as _};
+use std::io::Write;
 use byteorder::{BigEndian, ByteOrder};
 use hmac::{Hmac, Mac};
 use sha2::Sha256;
@@ -87,14 +82,9 @@ impl Keys {
     /// ```rust
     /// use signed_crypto::Keys;
     ///
-    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
-    /// // WARNING: Never use all-zero keys in production!
-    /// // Generate secure random keys using a cryptographic RNG.
     /// let enc_key = [0u8; 32];
     /// let int_key = [0u8; 32];
-    /// let keys = Keys::new(&enc_key, &int_key)?;
-    /// # Ok(())
-    /// # }
+    /// let keys = Keys::new(&enc_key, &int_key).unwrap();
     /// ```
     pub fn new(encryption_key: &[u8], integrity_key: &[u8]) -> Result<Self, CryptoError> {
         let encryption_key: [u8; 32] = encryption_key
@@ -132,6 +122,9 @@ pub enum CryptoError {
     /// Base64 decoding failed.
     #[error("decode error: {0}")]
     DecodeError(#[from] base64::DecodeError),
+    /// Writing to the output stream failed.
+    #[error("io error: {0}")]
+    IoError(#[from] std::io::Error),
 }
 
 /// Main cryptographic operations instance.
@@ -144,12 +137,8 @@ pub enum CryptoError {
 /// ```rust
 /// use signed_crypto::{Crypto, Keys};
 ///
-/// # fn main() -> Result<(), Box<dyn std::error::Error>> {
-/// // WARNING: Never use all-zero keys in production!
-/// let keys = Keys::new(&[0u8; 32], &[0u8; 32])?;
+/// let keys = Keys::new(&[0u8; 32], &[0u8; 32]).unwrap();
 /// let crypto = Crypto::new(keys);
-/// # Ok(())
-/// # }
 /// ```
 pub struct Crypto {
     /// The encryption and integrity keys.
@@ -164,12 +153,8 @@ impl Crypto {
     /// ```rust
     /// use signed_crypto::{Crypto, Keys};
     ///
-    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
-    /// // WARNING: Never use all-zero keys in production!
-    /// let keys = Keys::new(&[0u8; 32], &[0u8; 32])?;
+    /// let keys = Keys::new(&[0u8; 32], &[0u8; 32]).unwrap();
     /// let crypto = Crypto::new(keys);
-    /// # Ok(())
-    /// # }
     /// ```
     pub fn new(keys: Keys) -> Self {
         Self { keys }
@@ -201,13 +186,9 @@ impl Crypto {
     /// ```rust
     /// use signed_crypto::{Crypto, Keys};
     ///
-    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
-    /// // WARNING: Never use all-zero keys in production!
-    /// let crypto = Crypto::new(Keys::new(&[0u8; 32], &[0u8; 32])?);
+    /// let crypto = Crypto::new(Keys::new(&[0u8; 32], &[0u8; 32]).unwrap());
     /// let encoded = "SGVsbG8=";
-    /// let decoded = crypto.decode(encoded)?;
-    /// # Ok(())
-    /// # }
+    /// let decoded = crypto.decode(encoded).unwrap();
     /// ```
     #[inline]
     pub fn decode<T>(&self, data: T) -> Result<Vec<u8>, CryptoError>
@@ -227,13 +208,9 @@ impl Crypto {
     /// ```rust
     /// use signed_crypto::{Crypto, Keys};
     ///
-    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
-    /// // WARNING: Never use all-zero keys in production!
-    /// let crypto = Crypto::new(Keys::new(&[0u8; 32], &[0u8; 32])?);
+    /// let crypto = Crypto::new(Keys::new(&[0u8; 32], &[0u8; 32]).unwrap());
     /// let data = b"Hello";
     /// let encoded = crypto.encode(data);
-    /// # Ok(())
-    /// # }
     /// ```
     #[inline]
     pub fn encode<T>(&self, data: T) -> String
@@ -254,15 +231,11 @@ impl Crypto {
     /// ```rust
     /// use signed_crypto::{Crypto, Keys};
     ///
-    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
-    /// // WARNING: Never use all-zero keys in production!
-    /// let crypto = Crypto::new(Keys::new(&[0u8; 32], &[0u8; 32])?);
-    /// let mut pkg = crypto.init_plain_data(5, None)?;
-    /// crypto.set_payload(&mut pkg, b"Hello")?;
-    /// let encrypted = crypto.encrypt(&pkg)?;
-    /// let decrypted = crypto.decrypt(&encrypted)?;
-    /// # Ok(())
-    /// # }
+    /// let crypto = Crypto::new(Keys::new(&[0u8; 32], &[0u8; 32]).unwrap());
+    /// let mut pkg = crypto.init_plain_data(5, None).unwrap();
+    /// crypto.set_payload(&mut pkg, b"Hello").unwrap();
+    /// let encrypted = crypto.encrypt(&pkg).unwrap();
+    /// let decrypted = crypto.decrypt(&encrypted).unwrap();
     /// ```
     #[inline]
     pub fn decrypt(&self, cipher_data: &[u8]) -> Result<Vec<u8>, CryptoError> {
@@ -297,14 +270,10 @@ impl Crypto {
     /// ```rust
     /// use signed_crypto::{Crypto, Keys};
     ///
-    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
-    /// // WARNING: Never use all-zero keys in production!
-    /// let crypto = Crypto::new(Keys::new(&[0u8; 32], &[0u8; 32])?);
-    /// let mut pkg = crypto.init_plain_data(5, None)?;
-    /// crypto.set_payload(&mut pkg, b"Hello")?;
-    /// let encrypted = crypto.encrypt(&pkg)?;
-    /// # Ok(())
-    /// # }
+    /// let crypto = Crypto::new(Keys::new(&[0u8; 32], &[0u8; 32]).unwrap());
+    /// let mut pkg = crypto.init_plain_data(5, None).unwrap();
+    /// crypto.set_payload(&mut pkg, b"Hello").unwrap();
+    /// let encrypted = crypto.encrypt(&pkg).unwrap();
     /// ```
     #[inline]
     pub fn encrypt(&self, plain_data: &[u8]) -> Result<Vec<u8>, CryptoError> {
@@ -322,6 +291,136 @@ impl Crypto {
         Ok(data)
     }
 
+    /// Packages a payload into a URL-safe Base64 encoded encrypted string.
+    ///
+    /// # Arguments
+    ///
+    /// * `payload` - The data to encrypt
+    /// * `iv` - Optional custom initialization vector; a random IV with the
+    ///   current timestamp is generated when `None`
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use signed_crypto::{Crypto, Keys};
+    ///
+    /// let crypto = Crypto::new(Keys::new(&[0u8; 32], &[0u8; 32]).unwrap());
+    /// let encoded = crypto.package(b"Hello, world!", None).unwrap();
+    /// ```
+    #[inline]
+    pub fn package<T>(
+        &self,
+        payload: T,
+        iv: Option<&[u8]>,
+    ) -> Result<String, CryptoError>
+    where
+        T: AsRef<[u8]>,
+    {
+        let mut out = Vec::new();
+        self.package_to(payload, iv, &mut out)?;
+        // `package_to` writes Base64 output, which is always valid ASCII/UTF-8.
+        Ok(String::from_utf8(out).expect("base64 output is valid UTF-8"))
+    }
+
+    /// Unpackages and decrypts a URL-safe Base64 encoded encrypted string.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`CryptoError::InvalidSign`] if signature verification fails.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use signed_crypto::{Crypto, Keys};
+    ///
+    /// let crypto = Crypto::new(Keys::new(&[0u8; 32], &[0u8; 32]).unwrap());
+    /// let encoded = crypto.package(b"Hello, world!", None).unwrap();
+    /// let payload = crypto.unpackage(&encoded).unwrap();
+    /// assert_eq!(payload, b"Hello, world!");
+    /// ```
+    #[inline]
+    pub fn unpackage<T>(&self, data: T) -> Result<Vec<u8>, CryptoError>
+    where
+        T: AsRef<[u8]>,
+    {
+        let mut out = Vec::new();
+        self.unpackage_to(data, &mut out)?;
+        Ok(out)
+    }
+
+    /// Packages a payload and writes the URL-safe Base64 encoded encrypted
+    /// result into the provided writer.
+    ///
+    /// # Arguments
+    ///
+    /// * `payload` - The data to encrypt
+    /// * `iv` - Optional custom initialization vector; a random IV with the
+    ///   current timestamp is generated when `None`
+    /// * `out` - Any writer that receives the Base64-encoded encrypted package
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use signed_crypto::{Crypto, Keys};
+    ///
+    /// let crypto = Crypto::new(Keys::new(&[0u8; 32], &[0u8; 32]).unwrap());
+    /// let mut buf = Vec::new();
+    /// crypto.package_to(b"Hello, world!", None, &mut buf).unwrap();
+    /// ```
+    #[inline]
+    pub fn package_to<T, W>(
+        &self,
+        payload: T,
+        iv: Option<&[u8]>,
+        out: &mut W,
+    ) -> Result<(), CryptoError>
+    where
+        T: AsRef<[u8]>,
+        W: Write,
+    {
+        let payload = payload.as_ref();
+        let mut pkg = self.init_plain_data(payload.len(), iv)?;
+        self.set_payload(&mut pkg, payload)?;
+        let encrypted = self.encrypt(&pkg)?;
+        out.write_all(URL_SAFE.encode(&encrypted).as_bytes())?;
+        Ok(())
+    }
+
+    /// Unpackages and decrypts a URL-safe Base64 encoded string, writing the
+    /// decrypted payload into the provided writer.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`CryptoError::InvalidSign`] if signature verification fails.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use signed_crypto::{Crypto, Keys};
+    ///
+    /// let crypto = Crypto::new(Keys::new(&[0u8; 32], &[0u8; 32]).unwrap());
+    /// let encoded = crypto.package(b"Hello, world!", None).unwrap();
+    /// let mut buf = Vec::new();
+    /// crypto.unpackage_to(&encoded, &mut buf).unwrap();
+    /// assert_eq!(buf, b"Hello, world!");
+    /// ```
+    #[inline]
+    pub fn unpackage_to<T, W>(
+        &self,
+        data: T,
+        out: &mut W,
+    ) -> Result<(), CryptoError>
+    where
+        T: AsRef<[u8]>,
+        W: Write,
+    {
+        let decoded = self.decode(data)?;
+        let decrypted = self.decrypt(&decoded)?;
+        let payload = self.payload(&decrypted).ok_or(CryptoError::DataTooShort)?;
+        out.write_all(payload)?;
+        Ok(())
+    }
+
     /// Creates a custom initialization vector.
     ///
     /// # Arguments
@@ -335,11 +434,8 @@ impl Crypto {
     /// use signed_crypto::{Crypto, Keys};
     /// use time::OffsetDateTime;
     ///
-    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
-    /// let crypto = Crypto::new(Keys::new(&[0u8; 32], &[0u8; 32])?);
+    /// let crypto = Crypto::new(Keys::new(&[0u8; 32], &[0u8; 32]).unwrap());
     /// let iv = crypto.create_init_vector(OffsetDateTime::now_utc(), 12345);
-    /// # Ok(())
-    /// # }
     /// ```
     #[inline]
     pub fn create_init_vector(&self, timestamp: OffsetDateTime, server_id: i64) -> Vec<u8> {
@@ -360,14 +456,11 @@ impl Crypto {
     /// use signed_crypto::{Crypto, Keys};
     /// use time::OffsetDateTime;
     ///
-    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
-    /// let crypto = Crypto::new(Keys::new(&[0u8; 32], &[0u8; 32])?);
-    /// let mut pkg = crypto.init_plain_data(5, None)?;
-    /// crypto.set_payload(&mut pkg, b"Hello")?;
-    /// let encrypted = crypto.encrypt(&pkg)?;
+    /// let crypto = Crypto::new(Keys::new(&[0u8; 32], &[0u8; 32]).unwrap());
+    /// let mut pkg = crypto.init_plain_data(5, None).unwrap();
+    /// crypto.set_payload(&mut pkg, b"Hello").unwrap();
+    /// let encrypted = crypto.encrypt(&pkg).unwrap();
     /// let ts = crypto.timestamp(&encrypted).unwrap();
-    /// # Ok(())
-    /// # }
     /// ```
     #[inline]
     pub fn timestamp(&self, data: &[u8]) -> Option<OffsetDateTime> {
@@ -391,15 +484,11 @@ impl Crypto {
     /// ```rust
     /// use signed_crypto::{Crypto, Keys};
     ///
-    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
-    /// // WARNING: Never use all-zero keys in production!
-    /// let crypto = Crypto::new(Keys::new(&[0u8; 32], &[0u8; 32])?);
-    /// let mut pkg = crypto.init_plain_data(5, None)?;
-    /// crypto.set_payload(&mut pkg, b"Hello")?;
-    /// let encrypted = crypto.encrypt(&pkg)?;
+    /// let crypto = Crypto::new(Keys::new(&[0u8; 32], &[0u8; 32]).unwrap());
+    /// let mut pkg = crypto.init_plain_data(5, None).unwrap();
+    /// crypto.set_payload(&mut pkg, b"Hello").unwrap();
+    /// let encrypted = crypto.encrypt(&pkg).unwrap();
     /// let server_id = crypto.server_id(&encrypted).unwrap();
-    /// # Ok(())
-    /// # }
     /// ```
     #[inline]
     pub fn server_id(&self, data: &[u8]) -> Option<i64> {
@@ -418,15 +507,11 @@ impl Crypto {
     /// ```rust
     /// use signed_crypto::{Crypto, Keys};
     ///
-    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
-    /// // WARNING: Never use all-zero keys in production!
-    /// let crypto = Crypto::new(Keys::new(&[0u8; 32], &[0u8; 32])?);
-    /// let mut pkg = crypto.init_plain_data(5, None)?;
-    /// crypto.set_payload(&mut pkg, b"Hello")?;
+    /// let crypto = Crypto::new(Keys::new(&[0u8; 32], &[0u8; 32]).unwrap());
+    /// let mut pkg = crypto.init_plain_data(5, None).unwrap();
+    /// crypto.set_payload(&mut pkg, b"Hello").unwrap();
     /// let payload = crypto.payload(&pkg).unwrap();
     /// assert_eq!(payload, b"Hello");
-    /// # Ok(())
-    /// # }
     /// ```
     #[inline]
     pub fn payload<'a>(&self, data: &'a [u8]) -> Option<&'a [u8]> {
@@ -450,12 +535,8 @@ impl Crypto {
     /// ```rust
     /// use signed_crypto::{Crypto, Keys};
     ///
-    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
-    /// // WARNING: Never use all-zero keys in production!
-    /// let crypto = Crypto::new(Keys::new(&[0u8; 32], &[0u8; 32])?);
-    /// let pkg = crypto.init_plain_data(10, None)?;
-    /// # Ok(())
-    /// # }
+    /// let crypto = Crypto::new(Keys::new(&[0u8; 32], &[0u8; 32]).unwrap());
+    /// let pkg = crypto.init_plain_data(10, None).unwrap();
     /// ```
     #[inline]
     pub fn init_plain_data(
@@ -491,13 +572,9 @@ impl Crypto {
     /// ```rust
     /// use signed_crypto::{Crypto, Keys};
     ///
-    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
-    /// // WARNING: Never use all-zero keys in production!
-    /// let crypto = Crypto::new(Keys::new(&[0u8; 32], &[0u8; 32])?);
-    /// let mut pkg = crypto.init_plain_data(5, None)?;
-    /// crypto.set_payload(&mut pkg, b"Hello")?;
-    /// # Ok(())
-    /// # }
+    /// let crypto = Crypto::new(Keys::new(&[0u8; 32], &[0u8; 32]).unwrap());
+    /// let mut pkg = crypto.init_plain_data(5, None).unwrap();
+    /// crypto.set_payload(&mut pkg, b"Hello").unwrap();
     /// ```
     #[inline]
     pub fn set_payload(&self, plain_data: &mut [u8], payload: &[u8]) -> Result<(), CryptoError> {
@@ -656,5 +733,172 @@ mod tests {
         let mut plain_data = crypto.init_plain_data(0, None).unwrap();
         crypto.set_payload(&mut plain_data, payload).unwrap();
         assert_eq!(crypto.payload(&plain_data), Some(payload));
+    }
+
+    #[test]
+    fn test_package_unpackage() {
+        let crypto = Crypto::new(create_keys());
+        let payload = b"Hello, world!".as_slice();
+
+        let encoded = crypto.package(payload, None).unwrap();
+        assert_ne!(encoded, "");
+
+        let decoded = crypto.unpackage(&encoded).unwrap();
+        assert_eq!(decoded, payload);
+    }
+
+    #[test]
+    fn test_package_unpackage_with_iv() {
+        let crypto = Crypto::new(create_keys());
+        let timestamp = OffsetDateTime::UNIX_EPOCH + Duration::seconds(1);
+        let iv = crypto.create_init_vector(timestamp, 123456789);
+        let payload = b"https://example.com".as_slice();
+
+        let encoded = crypto.package(payload, Some(&iv)).unwrap();
+
+        // Metadata is still readable from the base64-encoded package.
+        let decoded = crypto.decode(encoded.as_bytes()).unwrap();
+        assert_eq!(crypto.timestamp(&decoded), Some(timestamp));
+        assert_eq!(crypto.server_id(&decoded), Some(123456789));
+
+        let recovered = crypto.unpackage(&encoded).unwrap();
+        assert_eq!(recovered, payload);
+    }
+
+    #[test]
+    fn test_package_unpackage_empty_payload() {
+        let crypto = Crypto::new(create_keys());
+        let payload = b"".as_slice();
+
+        let encoded = crypto.package(payload, None).unwrap();
+        let recovered = crypto.unpackage(&encoded).unwrap();
+        assert_eq!(recovered, payload);
+    }
+
+    #[test]
+    fn test_unpackage_tampered_signature() {
+        let crypto = Crypto::new(create_keys());
+        let encoded = crypto.package(b"Hello, world!", None).unwrap();
+
+        let mut bytes = crypto.decode(encoded.as_bytes()).unwrap();
+        let last = bytes.len() - Crypto::SIGNATURE_SIZE;
+        crypto.write_i32(&mut bytes, last, 123456789);
+
+        let tampered = crypto.encode(&bytes);
+        assert!(matches!(
+            crypto.unpackage(&tampered),
+            Err(CryptoError::InvalidSign)
+        ));
+    }
+
+    #[test]
+    fn test_package_to_matches_package() {
+        let crypto = Crypto::new(create_keys());
+        let timestamp = OffsetDateTime::UNIX_EPOCH + Duration::seconds(1);
+        let iv = crypto.create_init_vector(timestamp, 123456789);
+        let payload = b"https://example.com".as_slice();
+
+        // Same IV + payload must yield identical output.
+        let encoded_alloc = crypto.package(payload, Some(&iv)).unwrap();
+
+        let mut buf = Vec::new();
+        crypto.package_to(payload, Some(&iv), &mut buf).unwrap();
+        assert_eq!(buf, encoded_alloc.as_bytes());
+    }
+
+    #[test]
+    fn test_package_to_unpackage_to_roundtrip() {
+        let crypto = Crypto::new(create_keys());
+        let payload = b"Hello, world!".as_slice();
+
+        let mut enc_buf = Vec::new();
+        crypto.package_to(payload, None, &mut enc_buf).unwrap();
+
+        let mut dec_buf = Vec::new();
+        crypto.unpackage_to(&enc_buf, &mut dec_buf).unwrap();
+        assert_eq!(dec_buf, payload);
+    }
+
+    #[test]
+    fn test_package_to_appends_and_preserves_existing() {
+        let crypto = Crypto::new(create_keys());
+        let payload = b"Hello".as_slice();
+
+        let mut buf = b"prefix".to_vec();
+        let prefix_len = buf.len();
+        crypto.package_to(payload, None, &mut buf).unwrap();
+
+        // Existing bytes are preserved; encoded output is appended.
+        assert_eq!(&buf[..prefix_len], b"prefix");
+        assert!(buf.len() > prefix_len);
+
+        let mut dec_buf = Vec::new();
+        crypto.unpackage_to(&buf[prefix_len..], &mut dec_buf).unwrap();
+        assert_eq!(dec_buf, payload);
+    }
+
+    #[test]
+    fn test_package_to_empty_payload() {
+        let crypto = Crypto::new(create_keys());
+
+        let mut enc_buf = Vec::new();
+        crypto.package_to(b"", None, &mut enc_buf).unwrap();
+
+        let mut dec_buf = Vec::new();
+        crypto.unpackage_to(&enc_buf, &mut dec_buf).unwrap();
+        assert_eq!(dec_buf, b"");
+    }
+
+    #[test]
+    fn test_unpackage_to_tampered_signature() {
+        let crypto = Crypto::new(create_keys());
+
+        let mut enc_buf = Vec::new();
+        crypto.package_to(b"Hello", None, &mut enc_buf).unwrap();
+
+        // Tamper via the allocating decode/encode helpers, then feed the
+        // streaming unpackage path.
+        let mut raw = crypto.decode(&enc_buf).unwrap();
+        let last = raw.len() - Crypto::SIGNATURE_SIZE;
+        crypto.write_i32(&mut raw, last, 123456789);
+        let tampered = crypto.encode(&raw);
+
+        let mut dec_buf = Vec::new();
+        assert!(matches!(
+            crypto.unpackage_to(tampered.as_bytes(), &mut dec_buf),
+            Err(CryptoError::InvalidSign)
+        ));
+    }
+
+    #[test]
+    fn test_package_to_with_non_vec_writer() {
+        // Exercises the generic `io::Write` path through a writer whose
+        // `Write` impl is not `Vec<u8>`'s (BufWriter buffers, then flushes).
+        let crypto = Crypto::new(create_keys());
+        let payload = b"Hello, world!".as_slice();
+
+        let mut writer = std::io::BufWriter::new(Vec::<u8>::new());
+        crypto.package_to(payload, None, &mut writer).unwrap();
+        let encoded = writer.into_inner().unwrap();
+
+        let mut dec_buf = Vec::new();
+        crypto.unpackage_to(&encoded, &mut dec_buf).unwrap();
+        assert_eq!(dec_buf, payload);
+    }
+
+    #[test]
+    fn test_unpackage_to_appends_to_existing_buffer() {
+        // Symmetric to `test_package_to_appends_and_preserves_existing`:
+        // unpackage_to must append, not overwrite.
+        let crypto = Crypto::new(create_keys());
+        let payload = b"Hello".as_slice();
+        let encoded = crypto.package(payload, None).unwrap();
+
+        let mut buf = b"prefix".to_vec();
+        let prefix_len = buf.len();
+        crypto.unpackage_to(&encoded, &mut buf).unwrap();
+
+        assert_eq!(&buf[..prefix_len], b"prefix");
+        assert_eq!(&buf[prefix_len..], payload);
     }
 }
